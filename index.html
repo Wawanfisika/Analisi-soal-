@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANASOAL PRO - Aplikasi Analisis Butir Soal Lengkap</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel export/import -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; color: black !important; padding: 0 !important; }
+            .card-box { border: 1px solid #ccc !important; box-shadow: none !important; }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 no-print shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 text-white p-2 rounded-xl shadow-lg shadow-brand-500/30 flex items-center justify-center">
+                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        ANASOAL <span class="bg-brand-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">PRO</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Analisis Butir Soal (PG, PGK, BS, Matching, Isian, Esai)</p>
+                </div>
+            </div>
+
+            <!-- Quick Action Toolbar -->
+            <div class="flex items-center space-x-2">
+                <button onclick="loadDemoData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-amber-200 border border-slate-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm" title="Muat Data Contoh Soal Variatif">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Isi Demo Data</span>
+                </button>
+                <button onclick="exportToExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Export Excel</span>
+                </button>
+                <button onclick="window.print()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Cetak / PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        <!-- Navigation Tabs -->
+        <div class="no-print border-b border-slate-200 bg-white rounded-xl shadow-sm p-1.5 flex flex-wrap gap-1">
+            <button id="tab-btn-identitas" onclick="switchTab('identitas')" class="tab-btn active px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 bg-brand-50 text-brand-700 font-semibold">
+                <i data-lucide="settings" class="w-4 h-4"></i> 1. Identitas & Soal
+            </button>
+            <button id="tab-btn-jawaban" onclick="switchTab('jawaban')" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 text-slate-600 hover:bg-slate-100">
+                <i data-lucide="users" class="w-4 h-4"></i> 2. Skor Jawaban Siswa
+            </button>
+            <button id="tab-btn-analisis" onclick="switchTab('analisis')" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 text-slate-600 hover:bg-slate-100">
+                <i data-lucide="calculator" class="w-4 h-4"></i> 3. Analisis Butir Soal
+            </button>
+            <button id="tab-btn-grafik" onclick="switchTab('grafik')" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 text-slate-600 hover:bg-slate-100">
+                <i data-lucide="pie-chart" class="w-4 h-4"></i> 4. Grafik & Reliabilitas
+            </button>
+            <button id="tab-btn-github" onclick="switchTab('github')" class="tab-btn px-4 py-2 text-sm font-medium rounded-lg transition flex items-center gap-2 text-slate-600 hover:bg-slate-100">
+                <i data-lucide="github" class="w-4 h-4"></i> Panduan Upload GitHub
+            </button>
+        </div>
+
+        <!-- Overview Stats Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Siswa</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="stat-total-siswa" class="text-2xl font-extrabold text-slate-800">0</span>
+                    <span class="text-xs text-slate-500">Siswa</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Soal</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="stat-total-soal" class="text-2xl font-extrabold text-slate-800">0</span>
+                    <span class="text-xs text-slate-500">Butir</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rata-Rata Nilai</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="stat-rata-nilai" class="text-2xl font-extrabold text-brand-600">0.0</span>
+                    <span class="text-xs text-slate-500">skor</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Ketuntasan</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="stat-ketuntasan" class="text-2xl font-extrabold text-emerald-600">0%</span>
+                    <span id="stat-tuntas-count" class="text-xs text-slate-500">0 Tuntas</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between col-span-2 md:col-span-1">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Reliabilitas ($r_{11}$)</span>
+                <div class="flex items-baseline justify-between mt-2">
+                    <span id="stat-reliabilitas" class="text-2xl font-extrabold text-indigo-600">0.00</span>
+                    <span id="stat-reliabilitas-badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: IDENTITAS & PENGATURAN SOAL -->
+        <section id="tab-identitas" class="tab-content space-y-6">
+            <!-- Metadata Form -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 card-box">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <i data-lucide="file-text" class="w-5 h-5 text-brand-600"></i>
+                    Identitas Satuan Pendidikan & Mata Pelajaran
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Sekolah</label>
+                        <input type="text" id="meta-sekolah" value="SMA Negeri 1 Edukasi" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mata Pelajaran</label>
+                        <input type="text" id="meta-mapel" value="Informatika / Assessment" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kelas / Semester</label>
+                        <input type="text" id="meta-kelas" value="X MIPA 1 / Ganjil" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun Ajaran</label>
+                        <input type="text" id="meta-ta" value="2026/2027" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Guru / Evaluator</label>
+                        <input type="text" id="meta-guru" value="Dr. Ahmad Subagja, M.Pd." class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">KKM / Nilai Ketuntasan Min.</label>
+                        <input type="number" id="meta-kkm" value="75" min="0" max="100" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:outline-none font-bold text-brand-600">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Configuration Table -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 card-box">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="list-checks" class="w-5 h-5 text-brand-600"></i>
+                            Daftar Soal & Kunci Jawaban
+                        </h2>
+                        <p class="text-xs text-slate-500">Atur jenis soal (PG, PGK, BS, Memasangkan, Isian, Esai), skor maksimal, dan kunci jawaban.</p>
+                    </div>
+                    <div class="flex items-center gap-2 no-print">
+                        <button onclick="addQuestion()" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-sm">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Tambah Soal
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs uppercase font-bold border-b border-slate-200">
+                                <th class="p-3 w-12 text-center">No</th>
+                                <th class="p-3 w-48">Bentuk Soal</th>
+                                <th class="p-3 w-28 text-center">Skor Maks</th>
+                                <th class="p-3">Kunci Jawaban / Catatan Rubrik</th>
+                                <th class="p-3 w-20 text-center no-print">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="question-config-tbody" class="divide-y divide-slate-200">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: DATA JAWABAN & SKOR SISWA -->
+        <section id="tab-jawaban" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 card-box">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="grid" class="w-5 h-5 text-brand-600"></i>
+                            Matrix Skor Jawaban Siswa
+                        </h2>
+                        <p class="text-xs text-slate-500">Masukkan skor mentah per butir soal untuk setiap siswa. Nilai total dan persentase dihitung otomatis.</p>
+                    </div>
+                    <div class="flex items-center gap-2 no-print">
+                        <button onclick="addStudent()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-sm">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Tambah Siswa
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-xs text-left border-collapse" id="matrix-table">
+                        <thead id="matrix-thead" class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                            <!-- Populated dynamically -->
+                        </thead>
+                        <tbody id="matrix-tbody" class="divide-y divide-slate-200">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: HASIL ANALISIS BUTIR SOAL -->
+        <section id="tab-analisis" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 card-box">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="calculator" class="w-5 h-5 text-brand-600"></i>
+                            Tabel Hasil Analisis Parameter Butir Soal
+                        </h2>
+                        <p class="text-xs text-slate-500">Mencakup Tingkat Kesukaran ($P$), Daya Beda ($D$), Validitas ($r_{xy}$), dan Rekomendasi Status Soal.</p>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-xs text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase">
+                                <th class="p-2.5 text-center">No</th>
+                                <th class="p-2.5">Bentuk Soal</th>
+                                <th class="p-2.5 text-center">Rata-Rata Skor</th>
+                                <th class="p-2.5 text-center">Tkt Kesukaran ($P$)</th>
+                                <th class="p-2.5 text-center">Kategori Kesukaran</th>
+                                <th class="p-2.5 text-center">Daya Beda ($D$)</th>
+                                <th class="p-2.5 text-center">Kategori Daya Beda</th>
+                                <th class="p-2.5 text-center">Validitas ($r_{xy}$)</th>
+                                <th class="p-2.5 text-center">Status Validitas</th>
+                                <th class="p-2.5 text-center">Rekomendasi Soal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analisis-tbody" class="divide-y divide-slate-200">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: GRAFIK & RELIABILITAS -->
+        <section id="tab-grafik" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Difficulty Chart -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 card-box">
+                    <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-brand-600"></i>
+                        Distribusi Tingkat Kesukaran
+                    </h3>
+                    <div class="h-64 relative flex items-center justify-center">
+                        <canvas id="chart-kesukaran"></canvas>
+                    </div>
+                </div>
+
+                <!-- Discrimination Chart -->
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 card-box">
+                    <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-600"></i>
+                        Distribusi Daya Beda Soal
+                    </h3>
+                    <div class="h-64 relative flex items-center justify-center">
+                        <canvas id="chart-daya-beda"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reliability & Classical Mastery Detail -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 card-box">
+                <h3 class="text-base font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                    <i data-lucide="award" class="w-5 h-5 text-indigo-600"></i>
+                    Detail Analisis Reliabilitas Tes & Ketuntasan Belajar Klasikal
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">Koefisien Cronbach's Alpha ($\alpha$)</div>
+                        <div id="detail-alpha" class="text-xl font-bold text-indigo-600 mt-1">0.00</div>
+                        <p id="detail-alpha-desc" class="text-xs text-slate-500 mt-1">Estimasi konsistensi internal tes.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">Varians Total Skor ($\sigma_T^2$)</div>
+                        <div id="detail-varians" class="text-xl font-bold text-slate-800 mt-1">0.00</div>
+                        <p class="text-xs text-slate-500 mt-1">Sebaran skor total peserta didik.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">Skor Tertinggi / Terendah</div>
+                        <div id="detail-minmax" class="text-xl font-bold text-slate-800 mt-1">0 / 0</div>
+                        <p class="text-xs text-slate-500 mt-1">Rentang skor hasil penilaian.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">Ketuntasan Klasikal</div>
+                        <div id="detail-ketuntasan-status" class="text-xl font-bold text-emerald-600 mt-1">0%</div>
+                        <p id="detail-ketuntasan-desc" class="text-xs text-slate-500 mt-1">Target tuntas minimal 75%.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: PANDUAN UPLOAD GITHUB -->
+        <section id="tab-github" class="tab-content hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 card-box">
+                <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
+                    <div class="p-3 bg-slate-900 text-white rounded-xl">
+                        <i data-lucide="github" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Panduan Langkah Demi Langkah Upload ke GitHub Pages</h2>
+                        <p class="text-xs text-slate-500">Jadikan aplikasi ini online & bisa diakses siapa saja secara gratis lewat GitHub Pages!</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6 text-sm text-slate-700">
+                    <!-- Step 1 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-bold flex items-center justify-center">1</div>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Simpan Berkas Aplikasi</h3>
+                            <p class="text-slate-600 mt-0.5">Simpan kode HTML ini di komputer Anda dengan nama file <code class="bg-slate-100 text-brand-600 px-2 py-0.5 rounded font-mono font-bold">index.html</code>.</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-bold flex items-center justify-center">2</div>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Buat Repositori Baru di GitHub</h3>
+                            <ol class="list-disc list-inside mt-1 space-y-1 text-slate-600">
+                                <li>Buka situs <a href="https://github.com" target="_blank" class="text-brand-600 underline font-semibold">GitHub.com</a> dan masuk ke akun Anda.</li>
+                                <li>Klik tombol hijau <strong>New</strong> (atau tanda <code class="bg-slate-100 px-1 rounded">+</code> di kanan atas &rarr; <em>New repository</em>).</li>
+                                <li>Beri nama repository, contohnya: <code class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-mono">analisis-soal</code>.</li>
+                                <li>Pilih opsi <strong>Public</strong>.</li>
+                                <li>Centang opsi <em>"Add a README file"</em> (opsional). Klik <strong>Create repository</strong>.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-bold flex items-center justify-center">3</div>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Upload Berkas index.html</h3>
+                            <ol class="list-disc list-inside mt-1 space-y-1 text-slate-600">
+                                <li>Di dalam halaman repositori yang baru dibuat, klik tombol <strong>Add file</strong> &rarr; <strong>Upload files</strong>.</li>
+                                <li>Tarik (*drag and drop*) atau pilih file <code class="bg-slate-100 text-brand-600 px-2 py-0.5 rounded font-mono font-bold">index.html</code> dari komputer Anda.</li>
+                                <li>Klik tombol hijau <strong>Commit changes</strong> di bagian bawah.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-bold flex items-center justify-center">4</div>
+                        <div>
+                            <h3 class="font-bold text-slate-900">Aktifkan Fitur GitHub Pages</h3>
+                            <ol class="list-disc list-inside mt-1 space-y-1 text-slate-600">
+                                <li>Buka menu <strong>Settings</strong> di repositori Anda.</li>
+                                <li>Pada menu sebelah kiri, klik <strong>Pages</strong>.</li>
+                                <li>Pada bagian <em>Build and deployment</em> &rarr; <strong>Branch</strong>, ubah dari <em>None</em> menjadi <strong>main</strong> (atau <em>master</em>), lalu klik <strong>Save</strong>.</li>
+                                <li>Tunggu sekitar 1–2 menit. Tautan web online Anda akan muncul di bagian atas (contoh: <code class="bg-slate-100 text-emerald-700 px-2 py-0.5 rounded font-mono font-bold">https://username.github.io/analisis-soal/</code>).</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // APPLICATION STATE
+        let questionTypes = [
+            { id: 'PG', name: 'Pilihan Ganda (PG)', defaultMaxScore: 1 },
+            { id: 'PGK', name: 'Pilihan Ganda Kompleks (PGK)', defaultMaxScore: 2 },
+            { id: 'BS', name: 'Benar / Salah (BS)', defaultMaxScore: 2 },
+            { id: 'MATCH', name: 'Memasangkan (Matching)', defaultMaxScore: 3 },
+            { id: 'ISIAN', name: 'Isian Singkat', defaultMaxScore: 2 },
+            { id: 'ESAI', name: 'Esai / Uraian', defaultMaxScore: 10 },
+        ];
+
+        let questions = [];
+        let students = [];
+
+        let chartKesukaran = null;
+        let chartDayaBeda = null;
+
+        // INITIALIZATION
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadDemoData(); // Auto load rich demo data
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-brand-50', 'text-brand-700', 'font-semibold');
+                btn.classList.add('text-slate-600');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-brand-50', 'text-brand-700', 'font-semibold');
+                activeBtn.classList.remove('text-slate-600');
+            }
+
+            if (tabId === 'grafik') {
+                renderCharts();
+            }
+        }
+
+        function loadDemoData() {
+            // Demo Questions covering all 6 types
+            questions = [
+                { id: 1, type: 'PG', maxScore: 1, key: 'A' },
+                { id: 2, type: 'PG', maxScore: 1, key: 'C' },
+                { id: 3, type: 'PGK', maxScore: 2, key: 'A, C, D' },
+                { id: 4, type: 'PGK', maxScore: 2, key: 'B, D' },
+                { id: 5, type: 'BS', maxScore: 2, key: 'B-S-B-B' },
+                { id: 6, type: 'BS', maxScore: 2, key: 'S-B-B-S' },
+                { id: 7, type: 'MATCH', maxScore: 3, key: '1-C, 2-A, 3-B' },
+                { id: 8, type: 'ISIAN', maxScore: 2, key: 'Algoritma' },
+                { id: 9, type: 'ESAI', maxScore: 10, key: 'Rubrik 1-10' },
+                { id: 10, type: 'ESAI', maxScore: 10, key: 'Rubrik 1-10' }
+            ];
+
+            // 10 Students sample scores
+            students = [
+                { id: 1, name: 'Aditya Pratama', scores: [1, 1, 2, 2, 2, 2, 3, 2, 9, 8] },
+                { id: 2, name: 'Budi Santoso', scores: [1, 1, 2, 1, 2, 1, 3, 2, 8, 7] },
+                { id: 3, name: 'Citra Dewi', scores: [1, 0, 1, 2, 1, 2, 2, 1, 7, 8] },
+                { id: 4, name: 'Dian Permata', scores: [1, 1, 2, 2, 2, 2, 3, 2, 10, 9] },
+                { id: 5, name: 'Eko Prasetyo', scores: [0, 1, 1, 1, 1, 1, 2, 1, 6, 5] },
+                { id: 6, name: 'Fani Rahmawati', scores: [1, 0, 2, 0, 1, 1, 1, 2, 5, 6] },
+                { id: 7, name: 'Gilang Ramadhan', scores: [0, 0, 1, 1, 1, 0, 1, 0, 4, 4] },
+                { id: 8, name: 'Hendra Wijaya', scores: [1, 1, 1, 2, 2, 1, 2, 1, 7, 6] },
+                { id: 9, name: 'Indah Lestari', scores: [0, 0, 0, 1, 1, 0, 1, 0, 3, 4] },
+                { id: 10, name: 'Joko Widodo', scores: [1, 1, 2, 1, 2, 2, 3, 2, 8, 9] }
+            ];
+
+            renderAll();
+        }
+
+        function renderAll() {
+            renderQuestionConfig();
+            renderScoreMatrix();
+            calculateAndRenderAnalysis();
+            lucide.createIcons();
+        }
+
+        function renderQuestionConfig() {
+            const tbody = document.getElementById('question-config-tbody');
+            tbody.innerHTML = '';
+
+            questions.forEach((q, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-bold text-slate-600">${idx + 1}</td>
+                    <td class="p-3">
+                        <select onchange="updateQuestionType(${idx}, this.value)" class="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-medium">
+                            ${questionTypes.map(t => `<option value="${t.id}" ${q.type === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="p-3 text-center">
+                        <input type="number" min="1" max="100" value="${q.maxScore}" onchange="updateQuestionMaxScore(${idx}, this.value)" class="w-16 px-2 py-1 border border-slate-300 rounded text-center text-xs font-bold text-brand-600">
+                    </td>
+                    <td class="p-3">
+                        <input type="text" value="${q.key}" onchange="updateQuestionKey(${idx}, this.value)" placeholder="Kunci jawaban / pedoman penskoran" class="w-full px-2 py-1 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500">
+                    </td>
+                    <td class="p-3 text-center no-print">
+                        <button onclick="deleteQuestion(${idx})" class="p-1 text-rose-600 hover:bg-rose-50 rounded transition" title="Hapus Soal">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateQuestionType(index, newType) {
+            questions[index].type = newType;
+            const typeObj = questionTypes.find(t => t.id === newType);
+            if (typeObj) {
+                questions[index].maxScore = typeObj.defaultMaxScore;
+            }
+            renderAll();
+        }
+
+        function updateQuestionMaxScore(index, newMax) {
+            questions[index].maxScore = Math.max(1, parseFloat(newMax) || 1);
+            renderAll();
+        }
+
+        function updateQuestionKey(index, newKey) {
+            questions[index].key = newKey;
+        }
+
+        function addQuestion() {
+            const newId = questions.length + 1;
+            questions.push({ id: newId, type: 'PG', maxScore: 1, key: 'A' });
+            students.forEach(s => s.scores.push(0));
+            renderAll();
+        }
+
+        function deleteQuestion(index) {
+            if (questions.length <= 1) {
+                alert('Minimal harus ada 1 butir soal!');
+                return;
+            }
+            questions.splice(index, 1);
+            students.forEach(s => s.scores.splice(index, 1));
+            renderAll();
+        }
+
+        function renderScoreMatrix() {
+            const thead = document.getElementById('matrix-thead');
+            const tbody = document.getElementById('matrix-tbody');
+
+            let maxTotalPoss = questions.reduce((acc, q) => acc + q.maxScore, 0);
+
+            // Render Header
+            let headHTML = `
+                <tr class="border-b border-slate-200">
+                    <th class="p-2.5 w-10 text-center">No</th>
+                    <th class="p-2.5 w-48">Nama Siswa</th>
+            `;
+            questions.forEach((q, idx) => {
+                headHTML += `
+                    <th class="p-2.5 text-center border-l border-slate-200 min-w-[60px]" title="${q.type} - Max ${q.maxScore}">
+                        S${idx + 1}<br><span class="text-[10px] text-slate-500 font-normal">(${q.type})</span>
+                    </th>
+                `;
+            });
+            headHTML += `
+                    <th class="p-2.5 text-center border-l border-slate-200 bg-slate-200/60 w-16">Total</th>
+                    <th class="p-2.5 text-center bg-slate-200/60 w-16">Nilai</th>
+                    <th class="p-2.5 text-center bg-slate-200/60 w-24">Status</th>
+                    <th class="p-2.5 text-center w-12 no-print">Aksi</th>
+                </tr>
+            `;
+            thead.innerHTML = headHTML;
+
+            // Render Body
+            tbody.innerHTML = '';
+            const kkm = parseFloat(document.getElementById('meta-kkm').value) || 75;
+
+            students.forEach((student, sIdx) => {
+                let totalScore = student.scores.reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                let finalGrade = maxTotalPoss > 0 ? ((totalScore / maxTotalPoss) * 100).toFixed(1) : 0;
+                let isTuntas = parseFloat(finalGrade) >= kkm;
+
+                let tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                let rowHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-500">${sIdx + 1}</td>
+                    <td class="p-2.5">
+                        <input type="text" value="${student.name}" onchange="updateStudentName(${sIdx}, this.value)" class="w-full px-2 py-1 border border-slate-300 rounded focus:ring-1 focus:ring-brand-500 text-xs font-semibold">
+                    </td>
+                `;
+
+                questions.forEach((q, qIdx) => {
+                    let scoreVal = student.scores[qIdx] !== undefined ? student.scores[qIdx] : 0;
+                    rowHTML += `
+                        <td class="p-1.5 text-center border-l border-slate-100">
+                            <input type="number" min="0" max="${q.maxScore}" step="0.5" value="${scoreVal}" onchange="updateStudentScore(${sIdx}, ${qIdx}, this.value)" class="w-12 px-1 py-1 text-center border border-slate-300 rounded text-xs focus:ring-1 focus:ring-brand-500 font-medium">
+                        </td>
+                    `;
+                });
+
+                rowHTML += `
+                    <td class="p-2.5 text-center font-bold text-slate-800 border-l border-slate-200 bg-slate-50">${totalScore}</td>
+                    <td class="p-2.5 text-center font-extrabold ${isTuntas ? 'text-emerald-600' : 'text-rose-600'} bg-slate-50">${finalGrade}</td>
+                    <td class="p-2.5 text-center bg-slate-50">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isTuntas ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                            ${isTuntas ? 'TUNTAS' : 'BELUM'}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center no-print">
+                        <button onclick="deleteStudent(${sIdx})" class="text-rose-500 hover:text-rose-700 p-1" title="Hapus Siswa">
+                            <i data-lucide="user-x" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+
+                tr.innerHTML = rowHTML;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateStudentName(sIdx, newName) {
+            students[sIdx].name = newName;
+        }
+
+        function updateStudentScore(sIdx, qIdx, value) {
+            let val = parseFloat(value) || 0;
+            let maxVal = questions[qIdx].maxScore;
+            val = Math.max(0, Math.min(val, maxVal));
+            students[sIdx].scores[qIdx] = val;
+            renderAll();
+        }
+
+        function addStudent() {
+            const newId = students.length + 1;
+            const emptyScores = questions.map(() => 0);
+            students.push({ id: newId, name: `Siswa Baru ${newId}`, scores: emptyScores });
+            renderAll();
+        }
+
+        function deleteStudent(sIdx) {
+            if (students.length <= 1) {
+                alert('Minimal harus ada 1 siswa!');
+                return;
+            }
+            students.splice(sIdx, 1);
+            renderAll();
+        }
+
+        function calculateAndRenderAnalysis() {
+            const N = students.length;
+            const Q = questions.length;
+            const kkm = parseFloat(document.getElementById('meta-kkm').value) || 75;
+
+            document.getElementById('stat-total-siswa').innerText = N;
+            document.getElementById('stat-total-soal').innerText = Q;
+
+            if (N === 0 || Q === 0) return;
+
+            // Total scores per student
+            let maxPossibleTotal = questions.reduce((a, q) => a + q.maxScore, 0);
+            let studentTotals = students.map(s => s.scores.reduce((a, b) => a + (parseFloat(b) || 0), 0));
+            let studentGrades = studentTotals.map(t => maxPossibleTotal > 0 ? (t / maxPossibleTotal) * 100 : 0);
+
+            let sumGrade = studentGrades.reduce((a, b) => a + b, 0);
+            let avgGrade = (sumGrade / N).toFixed(1);
+            document.getElementById('stat-rata-nilai').innerText = avgGrade;
+
+            let tuntasCount = studentGrades.filter(g => g >= kkm).length;
+            let tuntasPercent = ((tuntasCount / N) * 100).toFixed(0);
+            document.getElementById('stat-ketuntasan').innerText = `${tuntasPercent}%`;
+            document.getElementById('stat-tuntas-count').innerText = `${tuntasCount} dari ${N} Siswa`;
+
+            // Sort students by total score for Discrimination Index (Upper 27% vs Lower 27%)
+            let indexedStudents = students.map((s, idx) => ({ ...s, total: studentTotals[idx] }));
+            indexedStudents.sort((a, b) => b.total - a.total);
+
+            let groupSize = Math.max(1, Math.round(N * 0.27));
+            let upperGroup = indexedStudents.slice(0, groupSize);
+            let lowerGroup = indexedStudents.slice(N - groupSize);
+
+            // Item by Item Calculations
+            let itemResults = [];
+            let itemVariancesSum = 0;
+
+            const tbodyAnalisis = document.getElementById('analisis-tbody');
+            tbodyAnalisis.innerHTML = '';
+
+            questions.forEach((q, qIdx) => {
+                let scoresVector = students.map(s => parseFloat(s.scores[qIdx]) || 0);
+                let itemSum = scoresVector.reduce((a, b) => a + b, 0);
+                let itemMean = itemSum / N;
+
+                // 1. Tingkat Kesukaran (P = Mean / MaxScore)
+                let P = q.maxScore > 0 ? itemMean / q.maxScore : 0;
+                let catKesukaran = '';
+                if (P < 0.30) catKesukaran = 'Sukar';
+                else if (P <= 0.70) catKesukaran = 'Sedang';
+                else catKesukaran = 'Mudah';
+
+                // 2. Daya Beda (D = (Mean_Upper - Mean_Lower) / MaxScore)
+                let meanUpper = upperGroup.reduce((a, s) => a + (s.scores[qIdx] || 0), 0) / groupSize;
+                let meanLower = lowerGroup.reduce((a, s) => a + (s.scores[qIdx] || 0), 0) / groupSize;
+                let D = q.maxScore > 0 ? (meanUpper - meanLower) / q.maxScore : 0;
+
+                let catDayaBeda = '';
+                if (D < 0.20) catDayaBeda = 'Jelek / Buang';
+                else if (D <= 0.29) catDayaBeda = 'Cukup / Revisi';
+                else if (D <= 0.39) catDayaBeda = 'Baik';
+                else catDayaBeda = 'Sangat Baik';
+
+                // 3. Validitas (Pearson Correlation r_xy)
+                let r_xy = calculatePearsonCorrelation(scoresVector, studentTotals);
+                let isValid = r_xy >= 0.30; // standard cut-off for moderate sample size
+
+                // 4. Recommendation
+                let rekomendasi = '';
+                if (D >= 0.30 && isValid) {
+                    rekomendasi = 'Diterima';
+                } else if (D >= 0.20 || isValid) {
+                    rekomendasi = 'Direvisi';
+                } else {
+                    rekomendasi = 'Dibuang / Ditolak';
+                }
+
+                // Item Variance for Cronbach's Alpha
+                let itemVar = calculateVariance(scoresVector, itemMean);
+                itemVariancesSum += itemVar;
+
+                itemResults.push({ P, D, r_xy, catKesukaran, catDayaBeda, isValid, rekomendasi });
+
+                // Render Item Analysis Row
+                let tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-600">${qIdx + 1}</td>
+                    <td class="p-2.5 font-medium">${q.type}</td>
+                    <td class="p-2.5 text-center">${itemMean.toFixed(2)} / ${q.maxScore}</td>
+                    <td class="p-2.5 text-center font-bold">${P.toFixed(2)}</td>
+                    <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded ${P < 0.3 ? 'bg-amber-100 text-amber-800' : P <= 0.7 ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}">
+                            ${catKesukaran}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center font-bold">${D.toFixed(2)}</td>
+                    <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded ${D < 0.2 ? 'bg-rose-100 text-rose-800' : D <= 0.29 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                            ${catDayaBeda}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center font-bold">${isNaN(r_xy) ? '0.00' : r_xy.toFixed(2)}</td>
+                    <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded ${isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                            ${isValid ? 'VALID' : 'TIDAK VALID'}
+                        </span>
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 text-[10px] font-extrabold rounded ${rekomendasi === 'Diterima' ? 'bg-emerald-100 text-emerald-800' : rekomendasi === 'Direvisi' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}">
+                            ${rekomendasi}
+                        </span>
+                    </td>
+                `;
+                tbodyAnalisis.appendChild(tr);
+            });
+
+            // 5. Calculate Cronbach's Alpha Reliability Index
+            let totalVar = calculateVariance(studentTotals, studentTotals.reduce((a, b) => a + b, 0) / N);
+            let alpha = 0;
+            if (Q > 1 && totalVar > 0) {
+                alpha = (Q / (Q - 1)) * (1 - (itemVariancesSum / totalVar));
+            }
+            alpha = Math.max(0, Math.min(1, isNaN(alpha) ? 0 : alpha));
+
+            document.getElementById('stat-reliabilitas').innerText = alpha.toFixed(2);
+            let relBadge = document.getElementById('stat-reliabilitas-badge');
+            if (alpha >= 0.70) {
+                relBadge.innerText = 'SANGAT TINGGI';
+                relBadge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700';
+            } else if (alpha >= 0.50) {
+                relBadge.innerText = 'CUKUP';
+                relBadge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700';
+            } else {
+                relBadge.innerText = 'RENDAH';
+                relBadge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700';
+            }
+
+            // Update Tab 4 details
+            document.getElementById('detail-alpha').innerText = alpha.toFixed(3);
+            document.getElementById('detail-alpha-desc').innerText = alpha >= 0.70 ? 'Instrumen tes memiliki konsistensi internal yang baik (Reliabel).' : 'Konsistensi instrumen perlu ditingkatkan.';
+            document.getElementById('detail-varians').innerText = totalVar.toFixed(2);
+            
+            let minScore = Math.min(...studentTotals);
+            let maxScore = Math.max(...studentTotals);
+            document.getElementById('detail-minmax').innerText = `${minScore} / ${maxScore}`;
+            
+            document.getElementById('detail-ketuntasan-status').innerText = `${tuntasPercent}%`;
+            document.getElementById('detail-ketuntasan-desc').innerText = parseFloat(tuntasPercent) >= 75 ? 'Kelas memenuhi standar ketuntasan klasikal.' : 'Kelas belum mencapai target ketuntasan klasikal (75%).';
+
+            // Store results globally for charts
+            window.lastAnalysisResults = itemResults;
+        }
+
+        // HELPER FORMULAS
+        function calculatePearsonCorrelation(x, y) {
+            const n = x.length;
+            if (n === 0) return 0;
+            const sumX = x.reduce((a, b) => a + b, 0);
+            const sumY = y.reduce((a, b) => a + b, 0);
+            const sumXY = x.reduce((a, b, idx) => a + b * y[idx], 0);
+            const sumX2 = x.reduce((a, b) => a + b * b, 0);
+            const sumY2 = y.reduce((a, b) => a + b * b, 0);
+
+            const num = (n * sumXY) - (sumX * sumY);
+            const den = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
+            if (den === 0) return 0;
+            return num / den;
+        }
+
+        function calculateVariance(arr, mean) {
+            const n = arr.length;
+            if (n <= 1) return 0;
+            const sumSq = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0);
+            return sumSq / (n - 1); // Sample variance
+        }
+
+        function renderCharts() {
+            if (!window.lastAnalysisResults) return;
+
+            const results = window.lastAnalysisResults;
+
+            // Kesukaran Count
+            let sukar = results.filter(r => r.catKesukaran === 'Sukar').length;
+            let sedang = results.filter(r => r.catKesukaran === 'Sedang').length;
+            let mudah = results.filter(r => r.catKesukaran === 'Mudah').length;
+
+            if (chartKesukaran) chartKesukaran.destroy();
+            const ctxK = document.getElementById('chart-kesukaran').getContext('2d');
+            chartKesukaran = new Chart(ctxK, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Sukar', 'Sedang', 'Mudah'],
+                    datasets: [{
+                        data: [sukar, sedang, mudah],
+                        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Daya Beda Count
+            let dJelek = results.filter(r => r.D < 0.20).length;
+            let dCukup = results.filter(r => r.D >= 0.20 && r.D <= 0.29).length;
+            let dBaik = results.filter(r => r.D >= 0.30 && r.D <= 0.39).length;
+            let dSangatBaik = results.filter(r => r.D >= 0.40).length;
+
+            if (chartDayaBeda) chartDayaBeda.destroy();
+            const ctxD = document.getElementById('chart-daya-beda').getContext('2d');
+            chartDayaBeda = new Chart(ctxD, {
+                type: 'bar',
+                data: {
+                    labels: ['Jelek (<0.2)', 'Cukup (0.2-0.29)', 'Baik (0.3-0.39)', 'Sangat Baik (≥0.4)'],
+                    datasets: [{
+                        label: 'Jumlah Soal',
+                        data: [dJelek, dCukup, dBaik, dSangatBaik],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        function exportToExcel() {
+            const mapel = document.getElementById('meta-mapel').value || 'Analisis_Soal';
+            const kelas = document.getElementById('meta-kelas').value || 'Kelas';
+
+            // Sheet 1: Matrix Skor
+            let matrixData = [];
+            let headerRow = ['No', 'Nama Siswa'];
+            questions.forEach((q, idx) => headerRow.push(`S${idx + 1} (${q.type})`));
+            headerRow.push('Total Skor', 'Nilai Akhir');
+            matrixData.push(headerRow);
+
+            let maxPossibleTotal = questions.reduce((a, q) => a + q.maxScore, 0);
+
+            students.forEach((s, idx) => {
+                let row = [idx + 1, s.name];
+                s.scores.forEach(sc => row.push(sc));
+                let total = s.scores.reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                let finalGrade = maxPossibleTotal > 0 ? ((total / maxPossibleTotal) * 100).toFixed(1) : 0;
+                row.push(total, finalGrade);
+                matrixData.push(row);
+            });
+
+            // Sheet 2: Analisis Butir
+            let analysisData = [
+                ['No Soal', 'Bentuk Soal', 'Skor Maks', 'Kunci Jawaban', 'Tkt Kesukaran (P)', 'Kategori Kesukaran', 'Daya Beda (D)', 'Kategori Daya Beda', 'Validitas (r_xy)', 'Status', 'Rekomendasi']
+            ];
+
+            if (window.lastAnalysisResults) {
+                questions.forEach((q, idx) => {
+                    let res = window.lastAnalysisResults[idx];
+                    analysisData.push([
+                        idx + 1,
+                        q.type,
+                        q.maxScore,
+                        q.key,
+                        res.P.toFixed(2),
+                        res.catKesukaran,
+                        res.D.toFixed(2),
+                        res.catDayaBeda,
+                        res.r_xy.toFixed(2),
+                        res.isValid ? 'VALID' : 'TIDAK VALID',
+                        res.rekomendasi
+                    ]);
+                });
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.aoa_to_sheet(matrixData);
+            const ws2 = XLSX.utils.aoa_to_sheet(analysisData);
+
+            XLSX.utils.book_append_sheet(wb, ws1, 'Skor Siswa');
+            XLSX.utils.book_append_sheet(wb, ws2, 'Analisis Butir Soal');
+
+            const fileName = `Analisis_Soal_${mapel.replace(/\s+/g, '_')}_${kelas.replace(/\s+/g, '_')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+    </script>
+</body>
+</html>
